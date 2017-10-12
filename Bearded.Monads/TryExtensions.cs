@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using static Bearded.Monads.Syntax;
 
 namespace Bearded.Monads
@@ -29,6 +30,28 @@ namespace Bearded.Monads
             }
         }
 
+        public async static Task<Try<C>> SelectManyAsync<A, B, C>(this Try<A> ta, Func<A, Task<Try<B>>> map, Func<A, B, Task<C>> selector)
+        {
+            try
+            {
+                if (ta.IsError) return ta.AsError().Value;
+
+                var a = ta.AsSuccess().Value;
+
+                var tb = await map(a);
+
+                if (tb.IsError) return tb.AsError().Value;
+
+                var b = tb.AsSuccess().Value;
+
+                return await selector(a, b);
+            }
+            catch (Exception e)
+            {
+                return e;
+            }
+        }
+
         public static Try<B> SelectMany<A, B>(this Try<A> ta, Func<A, Try<B>> map)
         {
             try
@@ -38,6 +61,22 @@ namespace Bearded.Monads
                 var a = ta.AsSuccess().Value;
 
                 return map(a);
+            }
+            catch (Exception e)
+            {
+                return e;
+            }
+        }
+
+        public static async Task<Try<B>> SelectManyAsync<A, B>(this Try<A> ta, Func<A, Task<Try<B>>> map)
+        {
+            try
+            {
+                if (ta.IsError) return ta.AsError().Value;
+
+                var a = ta.AsSuccess().Value;
+
+                return await map(a);
             }
             catch (Exception e)
             {
