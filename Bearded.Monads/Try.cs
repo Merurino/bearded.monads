@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 
 namespace Bearded.Monads
 {
@@ -20,8 +21,9 @@ namespace Bearded.Monads
         internal ExceptionContainer AsError() => this as ExceptionContainer;
 
         public Try<Next> Map<Next>(Func<Success, Next> f) => MapImpl(f);
-
+        public async Task<Try<Next>> MapAsync<Next>(Func<Success, Task<Next>> f) => await MapAsyncImpl(f);
         protected abstract Try<Next> MapImpl<Next>(Func<Success, Next> f);
+        protected abstract Task<Try<Next>> MapAsyncImpl<Next>(Func<Success, Task<Next>> f);
 
         public abstract void Do(Action<Success> successCallback, Action<Exception> errorCallback);
 
@@ -48,6 +50,26 @@ namespace Bearded.Monads
             {
                 successCallback(Value);
             }
+
+            private async Task<Try<Next>> TestAsync<Next>(Func<Success, Task<Next>> f){
+                var result = await f(Value);
+                
+                return Try<Next>.Create(result);                
+            }
+
+            protected override async Task<Try<Next>> MapAsyncImpl<Next>(Func<Success, Task<Next>> f)
+            {
+                try
+                {
+                    var result = await f(Value);
+
+                    return Try<Next>.Create(result);
+                }
+                catch (Exception e)
+                {
+                    return Try<Next>.Create(e);
+                }
+            }
         }
 
         internal class ExceptionContainer : Try<Success>
@@ -62,6 +84,8 @@ namespace Bearded.Monads
             {
                 errorCallback(Value);
             }
+            protected override async Task<Try<Next>> MapAsyncImpl<Next>(Func<Success, Task<Next>> f)
+                => await Task.FromResult(Try<Next>.Create(Value));
         }
 
         public bool Equals(Try<Success> other)
